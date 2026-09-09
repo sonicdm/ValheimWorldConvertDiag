@@ -1,11 +1,12 @@
-# Valheim Legacy World Conversion Diagnostic
+# ValheimWorldConvertDiag
 
-A small BepInEx diagnostic plugin for tracking down legacy inventory records that make a Valheim world fail during the 1.0 world conversion process.
+Diagnostic BepInEx plugin for tracking down legacy inventory data that causes Valheim 1.0 world conversion to crash.
 
-This was created after a vanilla dedicated-server world that loaded normally on the previous Valheim version failed in 1.0 with a stack trace ending in:
+This was created after a previously healthy vanilla world failed to load after updating to Valheim 1.0 with:
 
 ```text
 System.NullReferenceException: Object reference not set to an instance of an object
+
 at ItemDrop+ItemData.IsSameType
 at Inventory.AddItem
 at Inventory.AddTempItem
@@ -15,55 +16,356 @@ at ZDOMan.ConvertInventories
 World load failed mid-file. Exiting without save. Check backups!
 ```
 
-The plugin does **not** repair, skip, delete, or modify inventory data. It only adds diagnostic logging around the legacy inventory conversion path so you can identify the inventory and source ZDO that caused the exception.
+The same world loaded correctly on the previous Valheim version, including backups going back about a year.
 
-## What it logs
+The problem turned out to be one malformed legacy container inventory.
 
-When `ZDOMan.ConvertInventories()` fails, the plugin records information including:
+## What this plugin does
 
-- Source ZDO UID
-- Source ZDO world coordinates
-- Prefab hash
-- Inventory dimensions and loaded item count
-- Last item name and prefab hash being added
-- Stack, durability, quality, variant and inventory slot
-- `ItemData.IsSameType()` inputs
-- Null `m_shared` data
-- Recent items processed in the failing inventory
+ValheimWorldConvertDiag patches the legacy world inventory conversion process and logs the inventory and ZDO being processed when conversion fails.
 
-A useful failure report can look like:
+It records details such as:
 
-```text
-Inventory snapshot: type=Inventory, name="", size=4x4, loadedItemCount=6
-Source ZDO candidate: type=ZDO, m_uid=1:183157,
-  m_position=(-866.75, 31.46, -8632.98), m_prefab=328745978
+- inventory size
+- loaded item count
+- last item name
+- prefab hash
+- stack size
+- durability
+- inventory grid position
+- crafter data
+- `ItemData.IsSameType()` state
+- `m_shared` null state
+- recent items processed in the same inventory
+- source ZDO UID
+- source ZDO world position
+- source prefab hash
 
-Last Inventory.AddItem(string, ...) call:
-Inventory.AddItem(name="Wood", stack=38, pos=4,1, ...)
-```
+The most useful part is the ZDO position.
 
-In the world this was built for, the reported coordinates led to one disposable chest at an old Ashlands landing camp. The chest contained malformed legacy inventory slot data. Removing that chest on the previous Valheim version, saving the world, and attempting the 1.0 conversion again allowed the entire world to convert successfully.
+Instead of manually opening hundreds of chests, you can use the logged coordinates to find the exact world object causing the conversion failure.
 
 ## Important
 
-**Work on a backup of your world.**
+This plugin is diagnostic only.
 
-This plugin is intended for diagnostics. It does not make the conversion safe and does not guarantee that the reported ZDO is disposable.
+It does not:
 
-If your world still loads on an older Valheim build, keep an untouched copy before changing anything.
+- modify world data
+- delete items
+- skip broken inventories
+- suppress the original exception
+- automatically repair the world
 
-## Requirements
+Always work from a backup.
 
-- Valheim dedicated server
-- BepInEx 5.x
-- .NET SDK for building
-- Reference assemblies from the same Valheim/BepInEx installation you will run the plugin against
+## Confirmed real-world case
 
-The project currently targets `netstandard2.1`.
+The world used to develop this plugin contained more than 1.4 million ZDOs and had never been modded.
 
-## Building on Windows
+Valheim 1.0 failed while converting this legacy inventory:
 
-Create a `lib` directory beside the project file and copy these assemblies from your Valheim/BepInEx installation into it:
+```text
+Inventory size: 4x4
+Loaded items before failure: 6
+```
+
+Recent items included:
+
+```text
+Wood x50        pos 1,0
+Stone x7        pos 3,0
+Stone x50       pos 0,1
+CharredBone x50 pos 2,1
+CharredBone x50 pos 4,1
+CharredBone x14 pos 1,1
+Wood x38        pos 4,1
+```
+
+The suspicious part was that a 4-wide inventory contained items at:
+
+```text
+pos=4,1
+```
+
+and multiple items appeared to overlap at that same position.
+
+The crash occurred inside:
+
+```text
+ItemDrop+ItemData.IsSameType
+```
+
+while both `ItemData` objects had:
+
+```text
+m_shared=<null>
+```
+
+The plugin identified the source ZDO as:
+
+```text
+UID: 1:183157
+Position: (-866.75, 31.46, -8632.98)
+Prefab hash: 328745978
+```
+
+That location turned out to be an unimportant chest at an old Ashlands landing camp.
+
+The world was loaded using the previous Valheim version, the offending chests were destroyed, dropped items were removed, and the world was saved again.
+
+After that, Valheim 1.0 converted the world successfully.
+
+## Recommended recovery workflow
+
+Do not try to repair the world directly in Valheim 1.0.
+
+The safest process is:
+
+1. Keep an untouched backup of the original pre-1.0 world.
+2. Run Valheim 1.0 with this diagnostic plugin.
+3. Let conversion fail normally.
+4. Read the logged ZDO coordinates.
+5. Switch back to the previous Valheim build.
+6. Load the same world on that older version.
+7. Travel to the logged coordinates.
+8. Remove or empty the offending container/object.
+9. Save the world normally.
+10. Switch back to Valheim 1.0.
+11. Try conversion again.
+12. Repeat if another malformed inventory is found.
+
+This avoids editing the save file directly.
+
+## Using the previous Valheim build
+
+Valheim keeps an older stable branch available through Steam.
+
+For the regular game client:
+
+1. Open Steam.
+2. Right-click **Valheim**.
+3. Select **Properties**.
+4. Open the **Betas** tab.
+5. Select the previous stable branch, commonly named:
+
+```text
+default_old
+```
+
+6. Let Steam download the older build.
+7. Start Valheim.
+8. Load the affected world.
+9. Fix the object at the coordinates reported by the plugin.
+10. Save and exit cleanly.
+
+When finished:
+
+1. Return to **Properties > Betas**.
+2. Switch back to the normal/default branch.
+3. Let Steam update to Valheim 1.0 again.
+4. Retry the world conversion.
+
+Branch names can change over time, so if `default_old` is no longer present, use whichever Steam beta branch Iron Gate provides for the previous stable build.
+
+## Dedicated server rollback
+
+For a dedicated server, the exact process depends on how the server is installed.
+
+If using SteamCMD, install or update the server using the previous stable branch before loading the world.
+
+Example pattern:
+
+```text
+app_update 896660 -beta default_old validate
+```
+
+Do not blindly run this against your production server without backing up the server files and world first.
+
+If using Docker, check how your image exposes Steam beta branches. Many Valheim Docker images allow a Steam branch or beta environment variable.
+
+The important part is that the world must be loaded using a Valheim build from before the failing 1.0 conversion code.
+
+## Do not mix converted and unconverted saves
+
+Once Valheim 1.0 successfully converts a world, keep that converted copy separate from the old-format version.
+
+Recommended backup layout:
+
+```text
+BabyGotBoar-pre-1.0/
+BabyGotBoar-fixed-old-build/
+BabyGotBoar-converted-1.0/
+```
+
+Do not repeatedly move the same working copy back and forth between old and new versions.
+
+Use copies.
+
+## Dedicated server use
+
+This was developed and tested on a dedicated Valheim server running BepInEx.
+
+Typical plugin location:
+
+```text
+/config/bepinex/plugins/ValheimWorldConvertDiag.dll
+```
+
+or, depending on your setup:
+
+```text
+BepInEx/plugins/ValheimWorldConvertDiag.dll
+```
+
+The diagnostic log is written to the BepInEx config directory.
+
+On the Docker setup used during development:
+
+```text
+/config/bepinex/ValheimWorldConvertDiag.log
+```
+
+## Single-player / local world use
+
+The plugin patches shared Valheim world-conversion classes, including:
+
+```text
+ZDOMan
+Inventory
+ItemDrop.ItemData
+```
+
+These are not dedicated-server-only classes.
+
+Because of that, the plugin should also work for:
+
+- single-player worlds
+- locally hosted worlds
+- player-hosted multiplayer worlds
+
+as long as Valheim is running with BepInEx.
+
+Typical client installation:
+
+```text
+Valheim/
+└── BepInEx/
+    └── plugins/
+        └── ValheimWorldConvertDiag.dll
+```
+
+The diagnostic log should appear under the normal BepInEx config directory, for example:
+
+```text
+Valheim/BepInEx/config/ValheimWorldConvertDiag.log
+```
+
+Client-side use has not yet been personally tested, so please open an issue if you confirm it works or find anything different.
+
+## How to use
+
+1. Back up the affected world.
+2. Install BepInEx.
+3. Place the plugin DLL in the BepInEx plugins folder.
+4. Start Valheim using the version that crashes during conversion.
+5. Let the world conversion fail normally.
+6. Open:
+
+```text
+ValheimWorldConvertDiag.log
+```
+
+7. Find:
+
+```text
+---------------- CONVERSION FAILURE REPORT ----------------
+```
+
+8. Look for:
+
+```text
+Source ZDO candidate:
+```
+
+Example:
+
+```text
+Source ZDO candidate:
+type=ZDO,
+m_uid=1:183157,
+m_position=(-866.75, 31.46, -8632.98),
+m_prefab=328745978
+```
+
+9. Record the X and Z coordinates.
+10. Switch to the previous Valheim build.
+11. Load the same world.
+12. Travel to the reported location.
+13. Identify the container or object there.
+14. Empty or remove it.
+15. Save the world normally.
+16. Return to Valheim 1.0.
+17. Retry conversion.
+
+If conversion fails again, repeat the process. There may be more than one malformed legacy inventory.
+
+## Teleporting to the bad object
+
+With developer commands enabled, the logged X and Z coordinates can be used with:
+
+```text
+goto X Z
+```
+
+For example:
+
+```text
+goto -867 -8633
+```
+
+Using rounded whole numbers first may be easier on older game versions.
+
+If developer commands are not enabled, launch Valheim with:
+
+```text
+-console
+```
+
+Then open the console in-game and run:
+
+```text
+devcommands
+```
+
+After that, `goto` can be used.
+
+## If the object is disposable
+
+If the reported location is just an old temporary camp, abandoned storage area, boat, cart, or junk chest, the simplest repair may be to destroy it entirely.
+
+In the confirmed case:
+
+1. The old version was loaded.
+2. The offending chests were broken.
+3. `removedrops` was run.
+4. The world was saved.
+5. Valheim 1.0 conversion was retried.
+6. Conversion succeeded.
+
+Only do this if you are comfortable losing the contents of that object.
+
+## Building
+
+This project intentionally does not include Valheim, Unity, Harmony, or BepInEx DLLs.
+
+Place the required references in:
+
+```text
+lib/
+```
+
+Required files:
 
 ```text
 BepInEx.dll
@@ -72,60 +374,171 @@ UnityEngine.dll
 UnityEngine.CoreModule.dll
 ```
 
-Then run:
+Then build with:
 
 ```powershell
 .\build.ps1
 ```
 
-A successful build produces:
+or:
 
-```text
-bin\Release\netstandard2.1\BabyGotBoarConvertDiag.dll
+```powershell
+dotnet build -c Release
 ```
 
-The `lib` DLLs are intentionally ignored by Git and should not be committed.
-
-## Installing
-
-Copy the built DLL into your BepInEx plugins directory. For `lloesche/valheim-server-docker` / community Valheim server Docker setups this is commonly exposed as:
+The output DLL will be under:
 
 ```text
-/config/bepinex/plugins/
+bin/Release/netstandard2.1/
 ```
 
-Restart the server and allow the legacy world conversion to fail normally.
+## Why not automatically repair the inventory?
 
-The diagnostic log is written to:
+The plugin intentionally does not attempt automatic repair.
+
+There are too many unknowns around malformed legacy inventory data, and silently rewriting world data could cause more damage than the original problem.
+
+The safer workflow is:
 
 ```text
-/config/bepinex/BabyGotBoarConvertDiag.log
+diagnose
+locate
+repair manually on the old game version
+retry conversion
 ```
 
-Look for:
+## When this plugin may help
+
+This is specifically useful when:
+
+- the world worked before Valheim 1.0
+- the same world still loads on the previous Valheim version
+- Valheim 1.0 crashes during world conversion
+- the stack trace contains some combination of:
 
 ```text
----------------- CONVERSION FAILURE REPORT ----------------
+ZDOMan.ConvertInventories
+Inventory.LoadOld
+Inventory.AddTempItem
+Inventory.AddItem
+ItemDrop+ItemData.IsSameType
 ```
 
-The `Source ZDO candidate` line is particularly useful because it can give you the exact world coordinates of the inventory that caused the converter to fail.
+If the world does not load on the previous Valheim version either, the problem may be unrelated corruption and this plugin may not help.
 
-## Using the coordinates
+## Suggested backup strategy
 
-If the old Valheim version can still load the world, enable developer commands on a client and travel to the reported X/Z coordinates. For example:
+Before doing anything, back up both world files:
 
 ```text
-goto -867 -8633
+world.db
+world.fwl
 ```
 
-Inspect the object at that location. Do not destroy it unless you understand what it is and have a backup.
+Keep at least:
 
-## Why this exists
+```text
+original untouched backup
+old-build repair copy
+1.0 conversion test copy
+```
 
-A single malformed legacy inventory was enough to prevent a large, otherwise healthy vanilla world from converting to Valheim 1.0. The old version tolerated the inventory state, while the new converter crashed in `ItemData.IsSameType()`.
+Do not test on your only copy.
 
-This tool makes that failure visible instead of leaving you with only `World load failed mid-file` and hundreds of possible containers to search manually.
+## Notes on the underlying failure
+
+The confirmed case appears to have involved malformed legacy inventory slot data rather than a generally corrupted world.
+
+The container was reported as a 4x4 inventory, but some serialized items used an X coordinate of `4`, which is outside the normal `0-3` range for a 4-wide inventory.
+
+The older Valheim build was still able to load and use that container.
+
+Valheim 1.0's conversion path attempted to reconstruct the legacy inventory, encountered invalid or conflicting slot state, and eventually hit a null reference inside:
+
+```text
+ItemDrop+ItemData.IsSameType
+```
+
+This is why one bad container can prevent an otherwise healthy world from converting.
+
+The exact original cause of the malformed inventory is unknown.
+
+Possible causes include:
+
+- an old inventory serialization bug
+- a save occurring during a stack move or merge
+- inventory slot metadata becoming out of sync
+- a one-off container state that older versions tolerated
+
+The neighboring containers in the confirmed case were built at the same time and were unaffected, so this does not appear to be tied simply to container age or the game version in which the chest was created.
+
+## Troubleshooting
+
+### The plugin does not create a log
+
+Confirm that:
+
+- BepInEx is installed and loading
+- the DLL is in the correct `BepInEx/plugins` directory
+- the plugin appears in the BepInEx startup log
+- the world is actually reaching `ZDOMan.ConvertInventories`
+
+### The log does not contain a `Source ZDO candidate`
+
+Make sure you are using the current plugin version that includes ZDO inventory getter diagnostics.
+
+Older versions of the plugin could identify the failing inventory contents but not its world coordinates.
+
+### The reported coordinates contain nothing
+
+Possible explanations include:
+
+- the object is below terrain
+- the object is inside another structure
+- the inventory belongs to a cart
+- the inventory belongs to a ship
+- the object has been partially destroyed
+- the object is a temporary or unusual container
+
+Search the immediate area rather than assuming it must be a normal chest.
+
+### Conversion succeeds after fixing one object but fails again
+
+That means there may be multiple malformed inventories.
+
+Run the diagnostic plugin again, get the next ZDO coordinates, switch back to the old build, fix the next object, save, and retry.
+
+## Tested environment
+
+Initial development and successful recovery were performed on:
+
+- Valheim 1.0
+- legacy world created before 1.0
+- vanilla world
+- dedicated server
+- BepInEx 5.x
+- Docker-hosted Valheim server
+- Windows Docker host
+
+The same diagnostic approach should apply anywhere the same Valheim world conversion code is used.
+
+## Contributing
+
+If this plugin helps recover your world, please open an issue or discussion with:
+
+- whether you were using single-player or dedicated server
+- whether the world was modded
+- the relevant stack trace
+- the diagnostic failure report
+- what kind of object was found at the reported coordinates
+- whether removing or emptying it allowed conversion to succeed
+
+Do not upload your entire world save unless you are comfortable sharing it.
 
 ## Disclaimer
 
-This is an unofficial diagnostic tool and is not affiliated with Iron Gate AB or Coffee Stain Publishing.
+This is an unofficial diagnostic tool and is not affiliated with Iron Gate AB.
+
+Back up your world before testing anything.
+
+Use at your own risk.
