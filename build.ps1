@@ -12,7 +12,7 @@ $Missing = $Required | Where-Object { -not (Test-Path $_) }
 
 $StraySources = Get-ChildItem (Join-Path $Root 'lib') -Filter '*.cs' -File -ErrorAction SilentlyContinue
 if ($StraySources) {
-    Write-Host 'Ignoring stray .cs files in lib (only BabyGotBoarConvertDiag.cs at project root is compiled):' -ForegroundColor Yellow
+    Write-Host 'Ignoring stray .cs files in lib (only ValheimWorldConvertDiag.cs at project root is compiled):' -ForegroundColor Yellow
     $StraySources | ForEach-Object { Write-Host "  $($_.FullName)" }
     Write-Host ''
 }
@@ -26,12 +26,12 @@ if ($Missing) {
 
 Push-Location $Root
 try {
-    dotnet build .\BabyGotBoarConvertDiag.csproj -c Release
+    dotnet build .\ValheimWorldConvertDiag.csproj -c Release
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet build failed with exit code $LASTEXITCODE"
     }
 
-    $Built = Join-Path $Root 'bin\Release\netstandard2.1\BabyGotBoarConvertDiag.dll'
+    $Built = Join-Path $Root 'bin\Release\netstandard2.1\ValheimWorldConvertDiag.dll'
     if (-not (Test-Path $Built)) {
         throw "Build reported success but output DLL was not found at $Built"
     }
