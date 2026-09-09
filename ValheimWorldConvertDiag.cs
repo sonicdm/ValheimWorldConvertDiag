@@ -9,14 +9,14 @@ using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 
-namespace BabyGotBoarConvertDiag
+namespace ValheimWorldConvertDiag
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    public sealed class ConvertDiagPlugin : BaseUnityPlugin
+    public sealed class ValheimWorldConvertDiagPlugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "allan.babygotboar.convertdiag";
-        public const string PluginName = "BabyGotBoar Convert Diagnostic";
-        public const string PluginVersion = "1.1.0";
+        public const string PluginGuid = "sonicdm.valheimworldconvertdiag";
+        public const string PluginName = "Valheim World Convert Diagnostic";
+        public const string PluginVersion = "1.2.0";
 
         internal static ManualLogSource Log;
         internal static readonly object Sync = new object();
@@ -130,36 +130,36 @@ namespace BabyGotBoarConvertDiag
 
             harmony.Patch(
                 convertInventories,
-                prefix: new HarmonyMethod(typeof(ConvertDiagPlugin), nameof(ConvertInventoriesPrefix)),
-                finalizer: new HarmonyMethod(typeof(ConvertDiagPlugin), nameof(ConvertInventoriesFinalizer)));
+                prefix: new HarmonyMethod(typeof(ValheimWorldConvertDiagPlugin), nameof(ConvertInventoriesPrefix)),
+                finalizer: new HarmonyMethod(typeof(ValheimWorldConvertDiagPlugin), nameof(ConvertInventoriesFinalizer)));
 
             harmony.Patch(
                 loadOld,
-                prefix: new HarmonyMethod(typeof(ConvertDiagPlugin), nameof(InventoryLoadOldPrefix)),
-                finalizer: new HarmonyMethod(typeof(ConvertDiagPlugin), nameof(InventoryLoadOldFinalizer)));
+                prefix: new HarmonyMethod(typeof(ValheimWorldConvertDiagPlugin), nameof(InventoryLoadOldPrefix)),
+                finalizer: new HarmonyMethod(typeof(ValheimWorldConvertDiagPlugin), nameof(InventoryLoadOldFinalizer)));
 
             foreach (MethodInfo method in addItemStringMethods)
             {
                 harmony.Patch(method,
-                    prefix: new HarmonyMethod(typeof(ConvertDiagPlugin), nameof(AddItemStringPrefix)));
+                    prefix: new HarmonyMethod(typeof(ValheimWorldConvertDiagPlugin), nameof(AddItemStringPrefix)));
             }
 
             foreach (MethodInfo method in addTempItemMethods)
             {
                 harmony.Patch(method,
-                    prefix: new HarmonyMethod(typeof(ConvertDiagPlugin), nameof(AddTempItemPrefix)));
+                    prefix: new HarmonyMethod(typeof(ValheimWorldConvertDiagPlugin), nameof(AddTempItemPrefix)));
             }
 
             foreach (MethodInfo method in isSameTypeMethods)
             {
                 harmony.Patch(method,
-                    prefix: new HarmonyMethod(typeof(ConvertDiagPlugin), nameof(IsSameTypePrefix)));
+                    prefix: new HarmonyMethod(typeof(ValheimWorldConvertDiagPlugin), nameof(IsSameTypePrefix)));
             }
 
             foreach (MethodInfo method in zdoInventoryGetterMethods)
             {
                 harmony.Patch(method,
-                    prefix: new HarmonyMethod(typeof(ConvertDiagPlugin), nameof(ZdoInventoryGetterPrefix)));
+                    prefix: new HarmonyMethod(typeof(ValheimWorldConvertDiagPlugin), nameof(ZdoInventoryGetterPrefix)));
             }
 
             Write($"Patched: ConvertInventories=1, LoadOld=1, AddItem(string)={addItemStringMethods.Count}, AddTempItem={addTempItemMethods.Count}, IsSameType={isSameTypeMethods.Count}, ZDO inventory getters={zdoInventoryGetterMethods.Count}");
@@ -595,7 +595,7 @@ namespace BabyGotBoarConvertDiag
             {
                 const string dockerConfig = "/config/bepinex";
                 if (Directory.Exists(dockerConfig))
-                    return Path.Combine(dockerConfig, "BabyGotBoarConvertDiag.log");
+                    return Path.Combine(dockerConfig, "ValheimWorldConvertDiag.log");
             }
             catch
             {
@@ -604,11 +604,11 @@ namespace BabyGotBoarConvertDiag
 
             try
             {
-                return Path.Combine(Paths.ConfigPath, "BabyGotBoarConvertDiag.log");
+                return Path.Combine(Paths.ConfigPath, "ValheimWorldConvertDiag.log");
             }
             catch
             {
-                return Path.Combine(Environment.CurrentDirectory, "BabyGotBoarConvertDiag.log");
+                return Path.Combine(Environment.CurrentDirectory, "ValheimWorldConvertDiag.log");
             }
         }
 
@@ -627,7 +627,7 @@ namespace BabyGotBoarConvertDiag
 
         private static void Write(string message)
         {
-            string line = "[BabyGotBoarConvertDiag] " + message;
+            string line = "[ValheimWorldConvertDiag] " + message;
 
             try
             {

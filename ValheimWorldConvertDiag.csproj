@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <AssemblyName>BabyGotBoarConvertDiag</AssemblyName>
-    <RootNamespace>BabyGotBoarConvertDiag</RootNamespace>
+    <AssemblyName>ValheimWorldConvertDiag</AssemblyName>
+    <RootNamespace>ValheimWorldConvertDiag</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="BabyGotBoarConvertDiag.cs" />
+    <Compile Include="ValheimWorldConvertDiag.cs" />
   </ItemGroup>
 
   <ItemGroup>
