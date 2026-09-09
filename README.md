@@ -193,9 +193,9 @@ Once Valheim 1.0 successfully converts a world, keep that converted copy separat
 Recommended backup layout:
 
 ```text
-BabyGotBoar-pre-1.0/
-BabyGotBoar-fixed-old-build/
-BabyGotBoar-converted-1.0/
+MyWorld-pre-1.0/
+MyWorld-fixed-old-build/
+MyWorld-converted-1.0/
 ```
 
 Do not repeatedly move the same working copy back and forth between old and new versions.
